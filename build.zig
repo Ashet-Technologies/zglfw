@@ -1,4 +1,5 @@
 const std = @import("std");
+const Translator = @import("translate_c").Translator;
 
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
@@ -28,19 +29,23 @@ pub fn build(b: *std.Build) void {
     };
 
     const options_step = b.addOptions();
-    inline for (std.meta.fields(@TypeOf(options))) |field| {
-        options_step.addOption(field.type, field.name, @field(options, field.name));
+    const opt_info = @typeInfo(@TypeOf(options)).@"struct";
+    inline for (opt_info.field_names, opt_info.field_types) |field_name, field_type| {
+        options_step.addOption(field_type, field_name, @field(options, field_name));
     }
 
     const options_module = options_step.createModule();
 
-    const translate_c = b.addTranslateC(.{
-        .root_source_file = b.path("src/c.h"),
+    const translate_c_dep = b.dependency("translate_c", .{});
+
+    const translate_c: Translator = .init(translate_c_dep, .{
+        .c_source_file = b.path("src/c.h"),
         .target = target,
         .optimize = optimize,
+        .default_init = true,
     });
     translate_c.addIncludePath(b.path("libs/glfw/include"));
-    const c_module = translate_c.createModule();
+    const c_module = translate_c.mod;
 
     const module = b.addModule("root", .{
         .root_source_file = b.path("src/zglfw.zig"),
@@ -72,104 +77,109 @@ pub fn build(b: *std.Build) void {
     addIncludePaths(b, translate_c, target, options);
     linkSystemLibs(b, glfw, target, options);
 
-    const src_dir = "libs/glfw/src/";
+    const src_dir_path = b.path("libs/glfw/src");
     switch (target.result.os.tag) {
         .windows => {
             glfw.root_module.addCSourceFiles(.{
+                .root = src_dir_path,
                 .files = &.{
-                    src_dir ++ "platform.c",
-                    src_dir ++ "monitor.c",
-                    src_dir ++ "init.c",
-                    src_dir ++ "vulkan.c",
-                    src_dir ++ "input.c",
-                    src_dir ++ "context.c",
-                    src_dir ++ "window.c",
-                    src_dir ++ "osmesa_context.c",
-                    src_dir ++ "egl_context.c",
-                    src_dir ++ "null_init.c",
-                    src_dir ++ "null_monitor.c",
-                    src_dir ++ "null_window.c",
-                    src_dir ++ "null_joystick.c",
-                    src_dir ++ "wgl_context.c",
-                    src_dir ++ "win32_thread.c",
-                    src_dir ++ "win32_init.c",
-                    src_dir ++ "win32_monitor.c",
-                    src_dir ++ "win32_time.c",
-                    src_dir ++ "win32_joystick.c",
-                    src_dir ++ "win32_window.c",
-                    src_dir ++ "win32_module.c",
+                    "platform.c",
+                    "monitor.c",
+                    "init.c",
+                    "vulkan.c",
+                    "input.c",
+                    "context.c",
+                    "window.c",
+                    "osmesa_context.c",
+                    "egl_context.c",
+                    "null_init.c",
+                    "null_monitor.c",
+                    "null_window.c",
+                    "null_joystick.c",
+                    "wgl_context.c",
+                    "win32_thread.c",
+                    "win32_init.c",
+                    "win32_monitor.c",
+                    "win32_time.c",
+                    "win32_joystick.c",
+                    "win32_window.c",
+                    "win32_module.c",
                 },
                 .flags = &.{"-D_GLFW_WIN32"},
             });
         },
         .macos => {
             glfw.root_module.addCSourceFiles(.{
+                .root = src_dir_path,
                 .files = &.{
-                    src_dir ++ "platform.c",
-                    src_dir ++ "monitor.c",
-                    src_dir ++ "init.c",
-                    src_dir ++ "vulkan.c",
-                    src_dir ++ "input.c",
-                    src_dir ++ "context.c",
-                    src_dir ++ "window.c",
-                    src_dir ++ "osmesa_context.c",
-                    src_dir ++ "egl_context.c",
-                    src_dir ++ "null_init.c",
-                    src_dir ++ "null_monitor.c",
-                    src_dir ++ "null_window.c",
-                    src_dir ++ "null_joystick.c",
-                    src_dir ++ "posix_thread.c",
-                    src_dir ++ "posix_module.c",
-                    src_dir ++ "posix_poll.c",
-                    src_dir ++ "nsgl_context.m",
-                    src_dir ++ "cocoa_time.c",
-                    src_dir ++ "cocoa_joystick.m",
-                    src_dir ++ "cocoa_init.m",
-                    src_dir ++ "cocoa_window.m",
-                    src_dir ++ "cocoa_monitor.m",
+                    "platform.c",
+                    "monitor.c",
+                    "init.c",
+                    "vulkan.c",
+                    "input.c",
+                    "context.c",
+                    "window.c",
+                    "osmesa_context.c",
+                    "egl_context.c",
+                    "null_init.c",
+                    "null_monitor.c",
+                    "null_window.c",
+                    "null_joystick.c",
+                    "posix_thread.c",
+                    "posix_module.c",
+                    "posix_poll.c",
+                    "nsgl_context.m",
+                    "cocoa_time.c",
+                    "cocoa_joystick.m",
+                    "cocoa_init.m",
+                    "cocoa_window.m",
+                    "cocoa_monitor.m",
                 },
                 .flags = &.{"-D_GLFW_COCOA"},
             });
         },
         .linux => {
             glfw.root_module.addCSourceFiles(.{
+                .root = src_dir_path,
                 .files = &.{
-                    src_dir ++ "platform.c",
-                    src_dir ++ "monitor.c",
-                    src_dir ++ "init.c",
-                    src_dir ++ "vulkan.c",
-                    src_dir ++ "input.c",
-                    src_dir ++ "context.c",
-                    src_dir ++ "window.c",
-                    src_dir ++ "osmesa_context.c",
-                    src_dir ++ "egl_context.c",
-                    src_dir ++ "null_init.c",
-                    src_dir ++ "null_monitor.c",
-                    src_dir ++ "null_window.c",
-                    src_dir ++ "null_joystick.c",
-                    src_dir ++ "posix_time.c",
-                    src_dir ++ "posix_thread.c",
-                    src_dir ++ "posix_module.c",
+                    "platform.c",
+                    "monitor.c",
+                    "init.c",
+                    "vulkan.c",
+                    "input.c",
+                    "context.c",
+                    "window.c",
+                    "osmesa_context.c",
+                    "egl_context.c",
+                    "null_init.c",
+                    "null_monitor.c",
+                    "null_window.c",
+                    "null_joystick.c",
+                    "posix_time.c",
+                    "posix_thread.c",
+                    "posix_module.c",
                 },
                 .flags = &.{},
             });
             if (options.enable_x11 or options.enable_wayland) {
                 glfw.root_module.addCSourceFiles(.{
+                    .root = src_dir_path,
                     .files = &.{
-                        src_dir ++ "xkb_unicode.c",
-                        src_dir ++ "linux_joystick.c",
-                        src_dir ++ "posix_poll.c",
+                        "xkb_unicode.c",
+                        "linux_joystick.c",
+                        "posix_poll.c",
                     },
                     .flags = &.{},
                 });
             }
             if (options.enable_x11) {
                 glfw.root_module.addCSourceFiles(.{
+                    .root = src_dir_path,
                     .files = &.{
-                        src_dir ++ "x11_init.c",
-                        src_dir ++ "x11_monitor.c",
-                        src_dir ++ "x11_window.c",
-                        src_dir ++ "glx_context.c",
+                        "x11_init.c",
+                        "x11_monitor.c",
+                        "x11_window.c",
+                        "glx_context.c",
                     },
                     .flags = &.{},
                 });
@@ -178,14 +188,15 @@ pub fn build(b: *std.Build) void {
             }
             if (options.enable_wayland) {
                 glfw.root_module.addCSourceFiles(.{
+                    .root = src_dir_path,
                     .files = &.{
-                        src_dir ++ "wl_init.c",
-                        src_dir ++ "wl_monitor.c",
-                        src_dir ++ "wl_window.c",
+                        "wl_init.c",
+                        "wl_monitor.c",
+                        "wl_window.c",
                     },
                     .flags = &.{},
                 });
-                glfw.root_module.addIncludePath(b.path(src_dir ++ "wayland"));
+                glfw.root_module.addIncludePath(src_dir_path.path(b, "wayland"));
                 glfw.root_module.addCMacro("_GLFW_WAYLAND", "1");
             }
         },

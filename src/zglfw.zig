@@ -15,7 +15,7 @@ fn cIntCast(value: anytype) c_int {
     const ValueType = @TypeOf(value);
     return switch (@typeInfo(ValueType)) {
         .int => @intCast(value),
-        .@"enum", .enum_literal => @intFromEnum(value),
+        .@"enum", .enum_literal => @backingInt(value),
         .bool => @intFromBool(value),
         else => @compileError("Cannot cast " ++ @typeName(ValueType) ++ "to int."),
     };
@@ -27,8 +27,8 @@ fn cIntCast(value: anytype) c_int {
 //
 //--------------------------------------------------------------------------------------------------
 pub const Bool = enum(c_int) { _ };
-pub const TRUE: Bool = @enumFromInt(1);
-pub const FALSE: Bool = @enumFromInt(0);
+pub const TRUE: Bool = @fromBackingInt(@intCast(1));
+pub const FALSE: Bool = @fromBackingInt(@intCast(0));
 
 pub const InitHint = enum(c_int) {
     joystick_hat_buttons = 0x00050001,
@@ -528,7 +528,7 @@ pub fn joystickIsGamepad(joystick: Joystick) bool {
 extern fn glfwJoystickIsGamepad(Joystick) Bool;
 
 pub fn joystickAsGamepad(joystick: Joystick) ?Gamepad {
-    return if (joystickIsGamepad(joystick)) @enumFromInt(@intFromEnum(joystick)) else null;
+    return if (joystickIsGamepad(joystick)) @fromBackingInt(@intCast(@backingInt(joystick))) else null;
 }
 
 pub const JoystickFn = *const fn (joystick: Joystick, event: Joystick.Event) callconv(.c) void;
@@ -551,7 +551,7 @@ pub const Gamepad = enum(c_int) {
         left_trigger = 4,
         right_trigger = 5,
 
-        pub const count = std.meta.fields(@This()).len;
+        pub const count = @typeInfo(@This()).@"enum".field_names.len;
     };
 
     pub const Button = enum(u8) {
@@ -571,7 +571,7 @@ pub const Gamepad = enum(c_int) {
         dpad_down = 13,
         dpad_left = 14,
 
-        pub const count = std.meta.fields(@This()).len;
+        pub const count = @typeInfo(@This()).@"enum".field_names.len;
 
         pub const cross = Button.a;
         pub const circle = Button.b;
@@ -902,7 +902,7 @@ pub fn getWindowAttribute(
     comptime attrib: Window.Attribute,
 ) Window.Attribute.ValueType(attrib) {
     return switch (@typeInfo(Window.Attribute.ValueType(attrib))) {
-        .bool => @as(Bool, @enumFromInt(getWindowAttributeUntyped(window, attrib))) == TRUE,
+        .bool => @as(Bool, @fromBackingInt(@intCast(getWindowAttributeUntyped(window, attrib)))) == TRUE,
         .int => getWindowAttributeUntyped(window, attrib),
         else => unreachable,
     };
@@ -1140,7 +1140,7 @@ pub fn getInputMode(
     window: *Window,
     comptime mode: InputMode,
 ) Error!InputMode.ValueType(mode) {
-    return @enumFromInt(try getInputModeUntyped(window, mode));
+    return @fromBackingInt(@intCast(try getInputModeUntyped(window, mode)));
 }
 pub fn getInputModeUntyped(window: *Window, mode: InputMode) Error!c_int {
     const value = glfwGetInputMode(window, mode);
